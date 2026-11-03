@@ -22,7 +22,7 @@ This README has a lot of information. You may want to jump directly to:
 Rosbag2 packages are available via debian packages, and will already be included with any `-ros-base` installation (which is included within `-desktop`)
 
 ```
-$ export ROS_DISTRO=humble
+$ export ROS_DISTRO=rolling
 $ sudo apt-get install ros-$ROS_DISTRO-rosbag2
 ```
 
@@ -532,6 +532,18 @@ This file must contain a top-level key `output_bags`, which contains a list of t
 The only required value in the output bags is `uri` and `storage_id`. All other values are
 optional (however, if no topic selection is specified, this output bag will be empty!).
 
+For a single output bag, `--output-uri PATH` overrides the output `uri`, so the same YAML file
+can be reused when converting multiple bags:
+
+```bash
+ros2 bag convert -i input_a -o output_options.yaml --output-uri input_a_filtered
+ros2 bag convert -i input_b -o output_options.yaml --output-uri input_b_filtered
+```
+
+The output entry may omit `uri` when this option is used. `PATH` is the output bag directory;
+the writer generates the storage filenames inside it. The override requires exactly one entry
+in `output_bags`. Without it, all output destinations come from the YAML file as before.
+
 This example notes all fields that can have an effect, with a comment on the required ones.
 
 ```yaml
@@ -816,6 +828,19 @@ player:
 ```
 
 For a full list of available parameters, you can refer to [`player`](rosbag2_transport/test/resources/player_node_params.yaml) and [`recorder`](rosbag2_transport/test/resources/recorder_node_params.yaml) configurations from the `test` folder of `rosbag2_transport`.
+
+The recorder constructors taking only node options, or a node name and node options, start recording automatically.
+C++ applications that need to finish initialization before recording can use the three-argument constructor:
+
+```cpp
+auto recorder = std::make_shared<rosbag2_transport::Recorder>(
+  "my_recorder", node_options, false);
+// Finish application setup, then choose the output URI and start recording.
+recorder->record("/path/to/destination/folder");
+```
+
+Storage and recording options are still initialized from node parameters.
+Recording can also be started later through the recorder's `~/record` service.
 
 ## Plugin implementation
 
