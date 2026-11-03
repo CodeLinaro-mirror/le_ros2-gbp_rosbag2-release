@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser, FileType
+from argparse import ArgumentParser
 import datetime
 import os
 import signal
@@ -21,6 +21,7 @@ import time
 
 from rclpy.qos import InvalidQoSProfileException
 from ros2bag.api import add_writer_storage_plugin_extensions
+from ros2bag.api import check_file_readable
 from ros2bag.api import convert_service_to_service_event_topic
 from ros2bag.api import convert_yaml_to_qos_profile
 from ros2bag.api import print_error
@@ -107,7 +108,7 @@ def add_recorder_arguments(parser: ArgumentParser) -> None:
         '--topics', type=str, default=[], metavar='Topic', nargs='+',
         help='Space-delimited list of topics to record.')
     parser.add_argument(
-        '--static-topics-path', type=FileType('r'),
+        '--static-topics-path', type=check_file_readable,
         help='Path to a YAML file with statically defined topic names and types.'
              'Recorder will expect a YAML file in the following format:\n'
              'static_topics_and_types_list:\n'
@@ -184,7 +185,7 @@ def add_recorder_arguments(parser: ArgumentParser) -> None:
         '--ignore-leaf-topics', action='store_true',
         help='Ignore topics without a subscription.')
     parser.add_argument(
-        '--qos-profile-overrides-path', type=FileType('r'),
+        '--qos-profile-overrides-path', type=check_file_readable,
         help='Path to a yaml file defining overrides of the QoS profile for specific topics.')
 
     # Core config
@@ -437,7 +438,8 @@ class RecordVerb(VerbExtension):
 
         qos_profile_overrides = {}  # Specify a valid default
         if args.qos_profile_overrides_path:
-            qos_profile_dict = yaml.safe_load(args.qos_profile_overrides_path)
+            with open(args.qos_profile_overrides_path, 'r') as f:
+                qos_profile_dict = yaml.safe_load(f)
             try:
                 qos_profile_overrides = convert_yaml_to_qos_profile(qos_profile_dict)
             except (InvalidQoSProfileException, ValueError) as e:
@@ -450,11 +452,11 @@ class RecordVerb(VerbExtension):
 
         static_topics_uri = ''
         if args.static_topics_path:
-            static_topics_uri = args.static_topics_path.name
+            static_topics_uri = args.static_topics_path
 
         storage_config_file = ''
         if args.storage_config_file:
-            storage_config_file = args.storage_config_file.name
+            storage_config_file = args.storage_config_file
 
         storage_options = StorageOptions(
             uri=uri,
@@ -511,6 +513,10 @@ class RecordVerb(VerbExtension):
         recorder = Recorder(storage_options, record_options, args.log_level, args.node_name)
 
         signal.signal(signal.SIGTERM, signal_handler)
+        if hasattr(signal, 'SIGBREAK'):
+            # Windows: Ctrl-Break is the only console event another process can
+            # address to us; treat it like SIGTERM.
+            signal.signal(signal.SIGBREAK, signal_handler)
 
         try:
             # Start the recorder
@@ -524,6 +530,8 @@ class RecordVerb(VerbExtension):
             recorder.stop()
             recorder.stop_spin()
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            if hasattr(signal, 'SIGBREAK'):
+                signal.signal(signal.SIGBREAK, signal.SIG_DFL)
             termination_requested.clear()
 
         # Remove newly created directory if it is empty

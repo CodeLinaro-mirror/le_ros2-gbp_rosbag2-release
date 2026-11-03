@@ -15,6 +15,7 @@
 #ifndef ROSBAG2_TRANSPORT__RECORDER_HPP_
 #define ROSBAG2_TRANSPORT__RECORDER_HPP_
 
+#include <cstdint>
 #include <future>
 #include <memory>
 #include <string>
@@ -26,8 +27,14 @@
 
 #include "keyboard_handler/keyboard_handler.hpp"
 
+#include "rclcpp/event_handler.hpp"
 #include "rclcpp/node.hpp"
+#include "rclcpp/node_interfaces/node_graph_interface.hpp"
+#include "rclcpp/node_options.hpp"
 #include "rclcpp/qos.hpp"
+#include "rclcpp/subscription_base.hpp"
+#include "rcutils/time.h"
+#include "rcutils/types/uint8_array.h"
 
 #include "rosbag2_cpp/writer.hpp"
 
@@ -44,11 +51,13 @@
 
 #include "rosbag2_interfaces/msg/write_split_event.hpp"
 
+#include "rosbag2_storage/storage_options.hpp"
 #include "rosbag2_storage/topic_metadata.hpp"
 
 #include "rosbag2_transport/record_options.hpp"
 #include "rosbag2_transport/visibility_control.hpp"
 #include "rosbag2_transport/topic_filter.hpp"
+#include "rosidl_runtime_c/type_hash.h"
 
 namespace rosbag2_cpp
 {
@@ -81,6 +90,20 @@ public:
   explicit Recorder(
     const std::string & node_name = "rosbag2_recorder",
     const rclcpp::NodeOptions & node_options = rclcpp::NodeOptions());
+
+  /// \brief Construct a recorder from node parameters with optional automatic recording.
+  /// Storage and recording options are initialized from node parameters. The node options,
+  /// including the parameter event publisher setting, are passed to the underlying node.
+  /// When start_recording is false, call record() to start recording after construction.
+  /// \param node_name Name for the underlying node.
+  /// \param node_options Node options which will be used during construction of the underlying
+  /// node.
+  /// \param start_recording Whether to start recording at the end of construction.
+  ROSBAG2_TRANSPORT_PUBLIC
+  Recorder(
+    const std::string & node_name,
+    const rclcpp::NodeOptions & node_options,
+    bool start_recording);
 
   /// \brief Constructor which will construct Recorder class with provided parameters and default
   /// KeyboardHandler class initialized with parameter which is disabling signal handlers in it.
