@@ -15,39 +15,61 @@
 #include "rosbag2_transport/recorder.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstring>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <future>
+#include <limits>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <regex>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
+#include "keyboard_handler/keyboard_handler_base.hpp"
+#include "rclcpp/expand_topic_or_service_name.hpp"
+#include "rclcpp/generic_subscription.hpp"
+#include "rclcpp/logger.hpp"
+#include "rclcpp/message_info.hpp"
+#include "rclcpp/serialized_message.hpp"
+#include "rclcpp/service.hpp"
+#include "rclcpp/subscription_options.hpp"
+#include "rclcpp/time.hpp"
+#include "rclcpp/utilities.hpp"
 #include "rcutils/allocator.h"
 #include "rclcpp/clock.hpp"
 #include "rclcpp/event.hpp"
 #include "rclcpp/logging.hpp"
+#include "rcutils/types/rcutils_ret.h"
+#include "rmw/rmw.h"
 #include "rmw/types.h"
 #include "rosbag2_cpp/bag_events.hpp"
 #include "rosbag2_cpp/service_utils.hpp"
 #include "rosbag2_cpp/writer.hpp"
 #include "rosbag2_interfaces/srv/get_subscribed_topics.hpp"
 #include "rosbag2_interfaces/srv/snapshot.hpp"
+#include "rosbag2_storage/message_definition.hpp"
 #include "rosbag2_storage/qos.hpp"
 #include "logging.hpp"
+#include "rosbag2_storage/serialized_bag_message.hpp"
 #include "rosbag2_transport/config_options_from_node_params.hpp"
 #include "rosbag2_transport/reader_writer_factory.hpp"
 #include "rosbag2_transport/delayed_action_task_runner.hpp"
 #include "rosbag2_transport/recorder_event_notifier.hpp"
 #include "rosbag2_transport/topic_filter.hpp"
+#include "yaml-cpp/yaml.h"
 
 namespace rosbag2_transport
 {
@@ -2052,6 +2074,13 @@ Recorder::Recorder(const rclcpp::NodeOptions & node_options)
 Recorder::Recorder(
   const std::string & node_name,
   const rclcpp::NodeOptions & node_options)
+: Recorder(node_name, node_options, true)
+{}
+
+Recorder::Recorder(
+  const std::string & node_name,
+  const rclcpp::NodeOptions & node_options,
+  bool start_recording)
 : rclcpp::Node(node_name, node_options)
 {
   rosbag2_storage::StorageOptions storage_options = get_storage_options_from_node_params(*this);
@@ -2068,7 +2097,9 @@ Recorder::Recorder(
   pimpl_ = std::make_unique<RecorderImpl>(
     this, std::move(writer), keyboard_handler,
     storage_options, record_options);
-  pimpl_->record();
+  if (start_recording) {
+    pimpl_->record();
+  }
 }
 
 Recorder::Recorder(
