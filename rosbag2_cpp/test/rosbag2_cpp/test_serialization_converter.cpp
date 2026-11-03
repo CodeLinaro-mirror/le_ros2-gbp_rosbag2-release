@@ -16,6 +16,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,9 +30,14 @@
 #include "rclcpp/serialization.hpp"
 #include "rclcpp/serialized_message.hpp"
 #include "rosbag2_cpp/rmw_implemented_serialization_format_converter.hpp"
+#include "rosbag2_cpp/types/introspection_message.hpp"
 #include "rosbag2_cpp/writers/sequential_writer.hpp"
 #include "rosbag2_cpp/writer.hpp"
 #include "rosbag2_storage/ros_helper.hpp"
+#include "rosbag2_storage/serialized_bag_message.hpp"
+#include "rosbag2_storage/storage_interfaces/base_write_interface.hpp"
+#include "rosbag2_storage/storage_options.hpp"
+#include "rosidl_runtime_c/message_type_support_struct.h"
 #include "std_msgs/msg/string.hpp"
 
 using namespace testing;  // NOLINT
@@ -57,11 +63,10 @@ public:
 
     ON_CALL(*storage_factory_, open_read_write(_)).WillByDefault(
       DoAll(
-        Invoke(
-          [this](const rosbag2_storage::StorageOptions & storage_options) {
-            mock_storage_data_.clear();
-            (void)storage_options;
-          }),
+        [this](const rosbag2_storage::StorageOptions & storage_options) {
+          mock_storage_data_.clear();
+          (void)storage_options;
+          },
         Return(storage_)));
     EXPECT_CALL(*storage_factory_, open_read_write(_)).Times(AtLeast(1));
 
