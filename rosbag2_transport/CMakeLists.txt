@@ -89,10 +89,6 @@ install(
   RUNTIME DESTINATION bin
 )
 
-# Export old-style CMake variables
-ament_export_include_directories("include/${PROJECT_NAME}")
-ament_export_libraries(${PROJECT_NAME})
-
 # Export modern CMake targets
 ament_export_targets(export_${PROJECT_NAME})
 
@@ -641,17 +637,6 @@ if(BUILD_TESTING)
     )
   endfunction()
   call_for_each_rmw_implementation(test_load_composable_components_for_rmw_implementation)
-
-  # Mark a few tests as xfail
-  if(TARGET test_play_services__rmw_cyclonedds_cpp)
-    ament_add_test_label(test_play_services__rmw_cyclonedds_cpp xfail)
-  endif()
-  if(TARGET test_play_services__rmw_fastrtps_cpp)
-    ament_add_test_label(test_play_services__rmw_fastrtps_cpp xfail)
-  endif()
-  if(TARGET test_play_services__rmw_fastrtps_dynamic_cpp)
-    ament_add_test_label(test_play_services__rmw_fastrtps_dynamic_cpp xfail)
-  endif()
 
   ament_add_gmock(test_record_options
     test/rosbag2_transport/test_record_options.cpp)

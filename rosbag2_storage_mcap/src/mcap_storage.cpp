@@ -15,21 +15,39 @@
 #include "rcpputils/thread_safety_annotations.hpp"
 #include "rcutils/logging_macros.h"
 #include "rcutils/strerror.h"
+#include "rcutils/time.h"
+#include "rosbag2_storage/bag_metadata.hpp"
+#include "rosbag2_storage/message_definition.hpp"
 #include "rosbag2_storage/metadata_io.hpp"
+#include "rosbag2_storage/qos.hpp"
 #include "rosbag2_storage/ros_helper.hpp"
+#include "rosbag2_storage/serialized_bag_message.hpp"
+#include "rosbag2_storage/storage_filter.hpp"
+#include "rosbag2_storage/storage_interfaces/base_io_interface.hpp"
+#include "rosbag2_storage/storage_interfaces/base_read_interface.hpp"
+#include "rosbag2_storage/storage_interfaces/base_write_interface.hpp"
 #include "rosbag2_storage/storage_interfaces/read_write_interface.hpp"
+#include "rosbag2_storage/storage_options.hpp"
+#include "rosbag2_storage/topic_metadata.hpp"
 #include "rosbag2_storage/yaml.hpp"
 #include "rosbag2_storage_mcap/visibility_control.hpp"
 
 #include <mcap/mcap.hpp>
 
 #include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <ios>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <regex>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -637,14 +655,10 @@ void MCAPStorage::reset_iterator()
   ensure_summary_read();
   mcap::ReadMessageOptions options;
   if (read_order_ == mcap::ReadMessageOptions::ReadOrder::ReverseLogTimeOrder) {
-    options.startTime = 0;
-    // endTime is an exclusive range endpoint, but we want to start from `last_read_time_point_`.
-    // therefore, the time range we pass to the MCAP library is one nanosecond later than the
-    // seek point specified.
-    options.endTime = mcap::Timestamp(last_read_time_point_ + 1);
+    // Reading backwards from the seek point, so `last_read_time_point_` itself is included.
+    options.endingAt(mcap::Timestamp(last_read_time_point_));
   } else {
-    options.startTime = mcap::Timestamp(last_read_time_point_);
-    options.endTime = mcap::MaxTime;
+    options.startingAt(mcap::Timestamp(last_read_time_point_));
   }
   options.readOrder = read_order_;
 
