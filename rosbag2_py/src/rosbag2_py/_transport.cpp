@@ -13,11 +13,19 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
 #include <csignal>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -33,6 +41,7 @@
 #include "rosbag2_transport/recorder.hpp"
 
 #include "rclcpp/duration.hpp"
+#include "rclcpp/executor_options.hpp"
 #include "rclcpp/executors/events_cbg_executor/events_cbg_executor.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "rclcpp/init_options.hpp"
@@ -40,6 +49,10 @@
 #include "rclcpp/utilities.hpp"
 
 #include "./pybind11.hpp"
+#include "rcl/time.h"
+#include "rcutils/time.h"
+#include "rmw/rmw.h"
+#include "rmw/types.h"
 
 namespace py = pybind11;
 typedef std::unordered_map<std::string, rclcpp::QoS> QoSMap;
@@ -858,7 +871,8 @@ rosbag2_transport::RecordOptions bag_rewrite_default_record_options()
 void bag_rewrite(
   const std::vector<rosbag2_storage::StorageOptions> & input_options,
   const std::string & input_config_file,
-  const std::string & output_config_file)
+  const std::string & output_config_file,
+  const std::string & output_uri)
 {
   // Validate that only one input source is provided
   bool has_input_options = !input_options.empty();
@@ -915,12 +929,19 @@ void bag_rewrite(
             "Top-level key 'output_bags' must contain a list of "
             "StorageOptions/RecordOptions dicts.");
   }
+  if (!output_uri.empty() && bag_nodes.size() != 1) {
+    throw std::runtime_error(
+            "An output URI override requires exactly one entry in 'output_bags'.");
+  }
 
   std::vector<
     std::pair<rosbag2_storage::StorageOptions, rosbag2_transport::RecordOptions>> output_options;
   for (const auto & bag_node : bag_nodes) {
     rosbag2_storage::StorageOptions storage_options{};
     YAML::convert<rosbag2_storage::StorageOptions>::decode(bag_node, storage_options);
+    if (!output_uri.empty()) {
+      storage_options.uri = output_uri;
+    }
     rosbag2_transport::RecordOptions record_options = bag_rewrite_default_record_options();
     YAML::convert<rosbag2_transport::RecordOptions>::decode(bag_node, record_options);
     output_options.push_back(std::make_pair(storage_options, record_options));
@@ -1400,6 +1421,7 @@ PYBIND11_MODULE(_transport, m) {
     py::arg("input_options"),
     py::arg("input_config_file"),
     py::arg("output_config_file"),
+    py::arg("output_uri") = "",
     R"pbdoc(
       Rewrite one or more input bags into one or more output bags according to provided settings.
 
@@ -1418,12 +1440,16 @@ PYBIND11_MODULE(_transport, m) {
         output_config_file (str):
           Path to a YAML config file that defines `output_bags` with StorageOptions and
           RecordOptions.
+        output_uri (str, optional):
+          Override the output bag directory. Requires exactly one output entry, which may omit
+          `uri`. An empty string preserves the destinations specified in the YAML file.
 
       Raises:
         RuntimeError:
           - If neither or both input sources are provided.
           - If required YAML keys are missing or misformatted.
           - If any input bag URI does not exist.
+          - If an output URI override is provided without exactly one output entry.
     )pbdoc"
   );
 }
