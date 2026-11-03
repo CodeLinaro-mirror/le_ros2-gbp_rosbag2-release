@@ -1,0 +1,20 @@
+ros-rolling-lz4-cmake-module (0.35.1-1resolute) resolute; urgency=high
+
+  * Use the SPDX identifier Apache-2.0 in license declarations (#2508 <https://github.com/ros2/rosbag2/issues/2508>)
+  * Contributors: Michael Carroll
+
+ -- "Michael Orlov" <michael.orlov@apex.ai>  Mon, 02 Nov 2026 23:00:00 -0000
+
+ros-rolling-lz4-cmake-module (0.35.0-1resolute) resolute; urgency=high
+
+
+
+ -- "Michael Orlov" <michael.orlov@apex.ai>  Fri, 11 Sep 2026 22:00:00 -0000
+
+ros-rolling-lz4-cmake-module (0.34.0-1resolute) resolute; urgency=high
+
+
+
+ -- "Michael Orlov" <michael.orlov@apex.ai>  Thu, 30 Apr 2026 22:00:00 -0000
+
+
